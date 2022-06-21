@@ -37,17 +37,34 @@ const mensagensDeErro = {
         valueMissing: 'O campo data de nascimento não pode estar vazio.',
         customError: 'Você deve ter mais de 18 anos para se cadastrar'
     },
-
     cpf: {
         valueMissing: 'O campo CPF não pode estar vazio.',
         customError: 'O CPF informado é inválido.'
+    },
+    cep: {
+        valueMissing: 'O campo CEP não pode estar vazio.',
+        patternMismatch: 'O formato do campo CEP está inválido.',
+        customError: 'Não foi possível recuperar o CEP.'
+    },
+    logradouro: {
+        valueMissing: 'O campo logradouro não pode estar vazio.',
+    },
+    cidade: {
+        valueMissing: 'O campo cidade não pode estar vazio.',
+    },
+    estado: {
+        valueMissing: 'O campo estado não pode estar vazio.',
+    },
+    preco: {
+        valueMissing: 'O campo preço não pode estar vazio.',
     }
 
 }
 
 const validadores = {
     dataNascimento:input => validaDataNascimento(input),
-    cpf:input => validaCPF(input)
+    cpf:input => validaCPF(input),
+    cep:input => recuperarCEP(input)
 }
 
 function mostraMensagemDeErro(tipoDeInput, input){
@@ -81,7 +98,7 @@ function validaCPF(input){
     const cpfFormatado = input.value.replace(/\D/g, '');
     let mensagem = '';
 
-    if(!checaCPFRepetido(cpfFormatado)){
+    if(!checaCPFRepetido(cpfFormatado) || !checaEstruturaCPF(cpfFormatado)){
         mensagem = 'O CPF informado é inválido.';
     }
 
@@ -110,4 +127,72 @@ function checaCPFRepetido(cpf){
         }
         return cpfValido;
     })
+}
+
+function checaEstruturaCPF(cpf) {
+    const multiplicador = 10
+
+    return checaDigitoVerificador(cpf, multiplicador)
+}
+
+function checaDigitoVerificador(cpf, multiplicador) {
+    if(multiplicador >= 12) {
+        return true
+    }
+
+    let multiplicadorInicial = multiplicador
+    let soma = 0
+    const cpfSemDigitos = cpf.substr(0, multiplicador - 1).split('')
+    const digitoVerificador = cpf.charAt(multiplicador - 1)
+    for(let contador = 0; multiplicadorInicial > 1 ; multiplicadorInicial--) {
+        soma = soma + cpfSemDigitos[contador] * multiplicadorInicial
+        contador++
+    }
+
+    if(digitoVerificador == confirmaDigito(soma)) {
+        return checaDigitoVerificador(cpf, multiplicador + 1)
+    }
+
+    return false
+}
+
+function confirmaDigito(soma) {
+    return 11 - (soma % 11)
+}
+
+
+function recuperarCEP(input){
+    const cep = input.value.replace(/\D/g, '');
+    const url = `https://viacep.com.br/ws/${cep}/json`;
+    const options = {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+            'content-type': 'application/json;charset=utf-8'
+        }
+    }
+
+    if(!input.validity.patternMismatch && !input.validity.valueMissing){
+        fetch(url, options)
+            .then(response => response.json())
+            .then(data => {
+                if(data.erro){
+                    input.setCustomValidity('Não foi possível recuperar o CEP.');
+                    return;
+                }
+                preencherCamposComCEP(data);
+                input.setCustomValidity('');
+                return;
+            })
+    }
+}
+
+function preencherCamposComCEP(data){
+    const logradouro = document.querySelector("[data-tipo=logradouro]");
+    const cidade = document.querySelector("[data-tipo=cidade]");
+    const estado = document.querySelector("[data-tipo=estado]");
+
+    logradouro.value = data.logradouro;
+    cidade.value = data.localidade;
+    estado.value = data.uf;
 }
